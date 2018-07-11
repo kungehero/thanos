@@ -130,7 +130,7 @@ vendor:
 
 $(GOIMPORTS):
 	@echo ">> fetching goimports"
-	@go get -u github.com/golang/tools $GOPATH/src/golang.org/x/tools
+	@go get -u github.com/golang/tools $(GOPATH)/src/golang.org/x/tools
 
 $(PROMU):
 	@echo ">> fetching promu"
