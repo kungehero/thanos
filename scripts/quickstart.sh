@@ -5,6 +5,8 @@
 
 trap 'kill 0' SIGTERM
 
+
+export PROMETHEUS="$GOPATH/src/github.com/prometheus/prometheus"
 # Start local object storage, if desired.
 # NOTE: If you would like to use an actual S3-compatible API with this setup
 #       set the S3_* environment variables set in the Minio example.
@@ -65,7 +67,7 @@ scrape_configs:
     - "localhost:19492"
 EOF
 
-  ./prometheus \
+  ${PROMETHEUS}/prometheus \
     --config.file         data/prom${i}/prometheus.yml \
     --storage.tsdb.path   data/prom${i} \
     --log.level           warn \
