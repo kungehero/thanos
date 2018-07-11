@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"net"
-
 	"strconv"
 
 	"github.com/hashicorp/go-sockaddr"

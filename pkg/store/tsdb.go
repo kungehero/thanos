@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/go-kit/kit/log"
-	"github.com/improbable-eng/thanos/pkg/runutil"
 	"github.com/improbable-eng/thanos/pkg/store/storepb"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -80,7 +79,7 @@ func (s *TSDBStore) Series(r *storepb.SeriesRequest, srv storepb.Store_SeriesSer
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	defer runutil.CloseWithLogOnErr(s.logger, q, "close tsdb querier series")
+	defer q.Close()
 
 	set, err := q.Select(matchers...)
 	if err != nil {
@@ -175,7 +174,7 @@ func (s *TSDBStore) LabelValues(ctx context.Context, r *storepb.LabelValuesReque
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	defer runutil.CloseWithLogOnErr(s.logger, q, "close tsdb querier label values")
+	defer q.Close()
 
 	res, err := q.LabelValues(r.Label)
 	if err != nil {

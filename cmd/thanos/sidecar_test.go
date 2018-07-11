@@ -24,13 +24,19 @@ global:
 	testutil.Ok(t, err)
 
 	testutil.Ok(t, p.Start())
+
 	defer func() { testutil.Ok(t, p.Stop()) }()
 
 	u, err := url.Parse(fmt.Sprintf("http://%s", p.Addr()))
 	testutil.Ok(t, err)
 
 	ext, err := queryExternalLabels(context.Background(), log.NewNopLogger(), u)
+
 	testutil.Ok(t, err)
+
+	for _, v := range ext {
+		fmt.Println(v.Name, v.Value)
+	}
 
 	testutil.Equals(t, 2, len(ext))
 	testutil.Equals(t, "eu-west", ext.Get("region"))

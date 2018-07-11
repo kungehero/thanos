@@ -13,5 +13,6 @@ func FreePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return l.Addr().(*net.TCPAddr).Port, l.Close()
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }

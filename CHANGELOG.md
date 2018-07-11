@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
-Newest release candidate: [v0.1.0-rc.2](https://github.com/improbable-eng/thanos/releases/tag/v0.1.0-rc.2)
+Release candidate: [v0.1.0-rc.1](https://github.com/improbable-eng/thanos/releases/tag/v0.1.0-rc.1)
 
 ### Added
 - Gossip layer for all components.
@@ -31,5 +31,4 @@ Newest release candidate: [v0.1.0-rc.2](https://github.com/improbable-eng/thanos
 - Compact / Downsample offline commands.
 - Bucket commands.
 - Downsampling support for UI.
-- Grafana dashboards for Thanos components.
 

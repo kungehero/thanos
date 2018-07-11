@@ -7,7 +7,6 @@ import (
 
 	"github.com/fortytw2/leaktest"
 	"github.com/improbable-eng/thanos/pkg/objstore"
-	"github.com/improbable-eng/thanos/pkg/objstore/gcs"
 	"github.com/improbable-eng/thanos/pkg/objstore/inmem"
 	"github.com/improbable-eng/thanos/pkg/objstore/s3"
 	"github.com/improbable-eng/thanos/pkg/testutil"
@@ -26,23 +25,6 @@ func ForeachStore(t *testing.T, testFn func(t testing.TB, bkt objstore.Bucket)) 
 
 	}); !ok {
 		return
-	}
-
-	// Optional GCS.
-	if _, ok := os.LookupEnv("THANOS_SKIP_GCS_TESTS"); !ok {
-		bkt, closeFn, err := gcs.NewTestBucket(t, os.Getenv("GCP_PROJECT"))
-		testutil.Ok(t, err)
-
-		ok := t.Run("gcs", func(t *testing.T) {
-			// TODO(bplotka): Add leaktest when https://github.com/GoogleCloudPlatform/google-cloud-go/issues/1025 is resolved.
-			testFn(t, bkt)
-		})
-		closeFn()
-		if !ok {
-			return
-		}
-	} else {
-		t.Log("THANOS_SKIP_GCS_TESTS envvar present. Skipping test against GCS.")
 	}
 
 	// Optional S3 AWS.

@@ -16,7 +16,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
-	"github.com/improbable-eng/thanos/pkg/runutil"
 	"github.com/improbable-eng/thanos/pkg/store/prompb"
 	"github.com/improbable-eng/thanos/pkg/store/storepb"
 	"github.com/improbable-eng/thanos/pkg/tracing"
@@ -202,7 +201,7 @@ func (p *PrometheusStore) promSeries(ctx context.Context, q prompb.Query) (*prom
 	if err != nil {
 		return nil, errors.Wrap(err, "send request")
 	}
-	defer runutil.CloseWithLogOnErr(p.logger, presp.Body, "prom series request body")
+	defer presp.Body.Close()
 
 	if presp.StatusCode/100 != 2 {
 		return nil, errors.Errorf("request failed with code %s", presp.Status)
@@ -331,7 +330,7 @@ func (p *PrometheusStore) LabelValues(ctx context.Context, r *storepb.LabelValue
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
-	defer runutil.CloseWithLogOnErr(p.logger, resp.Body, "label values request body")
+	defer resp.Body.Close()
 
 	var m struct {
 		Data []string `json:"data"`

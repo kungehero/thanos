@@ -45,8 +45,7 @@ func TestBucketBlockSet_addGet(t *testing.T) {
 		m.Thanos.Downsample.Resolution = in.window
 		m.MinTime = in.mint
 		m.MaxTime = in.maxt
-
-		testutil.Ok(t, set.add(&bucketBlock{meta: &m}))
+		set.add(&bucketBlock{meta: &m})
 	}
 
 	cases := []struct {
@@ -133,7 +132,7 @@ func TestBucketBlockSet_remove(t *testing.T) {
 		m.ULID = in.id
 		m.MinTime = in.mint
 		m.MaxTime = in.maxt
-		testutil.Ok(t, set.add(&bucketBlock{meta: &m}))
+		set.add(&bucketBlock{meta: &m})
 	}
 	set.remove(input[1].id)
 	res := set.getFor(0, 300, 0)

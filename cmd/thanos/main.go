@@ -15,7 +15,6 @@ import (
 	"syscall"
 
 	gmetrics "github.com/armon/go-metrics"
-
 	gprom "github.com/armon/go-metrics/prometheus"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -53,16 +52,11 @@ func main() {
 
 	logLevel := app.Flag("log.level", "Log filtering level.").
 		Default("info").Enum("error", "warn", "info", "debug")
-
-	gcloudTraceProject := app.Flag("gcloudtrace.project", "GCP project to send Google Cloud Trace tracings to. If empty, tracing will be disabled.").
-		String()
-	gcloudTraceSampleFactor := app.Flag("gcloudtrace.sample-factor", "How often we send traces (1/<sample-factor>). If 0 no trace will be sent periodically, unless forced by baggage item. See `pkg/tracing/tracing.go` for details.").
-		Default("1").Uint64()
-
 	cmds := map[string]setupFunc{}
 	registerSidecar(cmds, app, "sidecar")
 	registerStore(cmds, app, "store")
 	registerQuery(cmds, app, "query")
+	registerReceiver(cmds,app,"receiver")
 	registerRule(cmds, app, "rule")
 	registerCompact(cmds, app, "compact")
 	registerBucket(cmds, app, "bucket")
@@ -125,10 +119,9 @@ func main() {
 	// Setup optional tracing.
 	{
 		ctx := context.Background()
-
 		var closeFn func() error
-		tracer, closeFn = tracing.NewOptionalGCloudTracer(ctx, logger, *gcloudTraceProject, *gcloudTraceSampleFactor, *debugName)
-
+		umbTraceProject := "umonibench"
+		tracer, closeFn = tracing.NewOptionalUmbTracer(ctx, logger, umbTraceProject, 3, *debugName)
 		ctx, cancel := context.WithCancel(ctx)
 		g.Add(func() error {
 			<-ctx.Done()
@@ -233,7 +226,6 @@ func metricHTTPListenGroup(g *run.Group, logger log.Logger, reg *prometheus.Regi
 	mux := http.NewServeMux()
 	registerMetrics(mux, reg)
 	registerProfile(mux)
-
 	l, err := net.Listen("tcp", httpBindAddr)
 	if err != nil {
 		return errors.Wrap(err, "listen metrics address")
@@ -243,7 +235,7 @@ func metricHTTPListenGroup(g *run.Group, logger log.Logger, reg *prometheus.Regi
 		level.Info(logger).Log("msg", "Listening for metrics", "address", httpBindAddr)
 		return errors.Wrap(http.Serve(l, mux), "serve metrics")
 	}, func(error) {
-		runutil.CloseWithLogOnErr(logger, l, "metric listener")
+		runutil.LogOnErr(logger, l, "metric listener")
 	})
 	return nil
 }

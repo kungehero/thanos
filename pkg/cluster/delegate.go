@@ -14,10 +14,8 @@ import (
 // and broadcasts its peer's state in the cluster.
 type delegate struct {
 	*memberlist.TransmitLimitedQueue
-
-	logger log.Logger
-	data   *data
-
+	logger               log.Logger
+	data                 *data
 	gossipMsgsReceived   prometheus.Counter
 	gossipClusterMembers prometheus.Gauge
 }

@@ -207,7 +207,7 @@ receivers:
 		err := c.Start()
 		if err != nil {
 			// Let already started commands finish.
-			go func() { _ = g.Run() }()
+			go g.Run()
 			return nil, errors.Wrap(err, "failed to start")
 		}
 
@@ -224,7 +224,7 @@ receivers:
 
 			return err
 		}, func(error) {
-			_ = cmd.Process.Signal(syscall.SIGTERM)
+			cmd.Process.Signal(syscall.SIGTERM)
 		})
 	}
 

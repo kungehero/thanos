@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/improbable-eng/thanos/pkg/block"
-	"github.com/improbable-eng/thanos/pkg/runutil"
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 	"github.com/prometheus/tsdb"
@@ -76,6 +75,7 @@ func (p *Prometheus) Start() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("prometheus port=", port)
 
 	p.addr = fmt.Sprintf("localhost:%d", port)
 	p.cmd = exec.Command(
@@ -101,12 +101,12 @@ func (p *Prometheus) Addr() string {
 }
 
 // SetConfig updates the contents of the config file.
-func (p *Prometheus) SetConfig(s string) (err error) {
+func (p *Prometheus) SetConfig(s string) error {
 	f, err := os.Create(filepath.Join(p.dir, "prometheus.yml"))
 	if err != nil {
 		return err
 	}
-	defer runutil.CloseWithErrCapture(nil, &err, f, "prometheus config")
+	defer f.Close()
 
 	_, err = f.Write([]byte(s))
 	return err
@@ -114,10 +114,7 @@ func (p *Prometheus) SetConfig(s string) (err error) {
 
 // Stop terminates Prometheus and clean up its data directory.
 func (p *Prometheus) Stop() error {
-	if err := p.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		return errors.Wrapf(err, "failed to Prometheus. Kill it manually and cleanr %s dir", p.db.Dir())
-	}
-
+	p.cmd.Process.Signal(syscall.SIGTERM)
 	time.Sleep(time.Second / 2)
 	return p.cleanup()
 }
@@ -150,7 +147,7 @@ func CreateBlock(
 	if err != nil {
 		return id, errors.Wrap(err, "create head block")
 	}
-	defer runutil.CloseWithErrCapture(log.NewNopLogger(), &err, h, "TSDB Head")
+	defer h.Close()
 
 	var g errgroup.Group
 	var timeStepSize = (maxt - mint) / int64(numSamples+1)
@@ -173,10 +170,7 @@ func CreateBlock(
 				for _, lset := range batch {
 					_, err := app.Add(lset, t, rand.Float64())
 					if err != nil {
-						if rerr := app.Rollback(); rerr != nil {
-							err = errors.Wrapf(err, "rollback failed: %v", rerr)
-						}
-
+						app.Rollback()
 						return errors.Wrap(err, "add sample")
 					}
 				}
@@ -201,7 +195,7 @@ func CreateBlock(
 		return id, errors.Wrap(err, "write block")
 	}
 
-	if _, err = block.InjectThanosMeta(log.NewNopLogger(), filepath.Join(dir, id.String()), block.ThanosMeta{
+	if _, err = block.InjectThanosMeta(filepath.Join(dir, id.String()), block.ThanosMeta{
 		Labels:     extLset.Map(),
 		Downsample: block.ThanosDownsampleMeta{Resolution: resolution},
 		Source:     block.TestSource,

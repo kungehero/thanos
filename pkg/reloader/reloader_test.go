@@ -23,6 +23,7 @@ func TestReloader_ConfigApply(t *testing.T) {
 
 	l, err := net.Listen("tcp", "localhost:0")
 	testutil.Ok(t, err)
+	defer l.Close()
 
 	reloads := 0
 	i := 0
@@ -41,17 +42,15 @@ func TestReloader_ConfigApply(t *testing.T) {
 		reloads++
 		resp.WriteHeader(http.StatusOK)
 	})
-	go func() {
-		_ = srv.Serve(l)
-	}()
-	defer func() { testutil.Ok(t, srv.Close()) }()
+	go srv.Serve(l)
+	defer srv.Close()
 
 	reloadURL, err := url.Parse(fmt.Sprintf("http://%s", l.Addr().String()))
 	testutil.Ok(t, err)
 
 	dir, err := ioutil.TempDir("", "reloader-cfg-test")
 	testutil.Ok(t, err)
-	defer func() { testutil.Ok(t, os.RemoveAll(dir)) }()
+	defer os.RemoveAll(dir)
 
 	testutil.Ok(t, os.Mkdir(dir+"/in", os.ModePerm))
 	testutil.Ok(t, os.Mkdir(dir+"/out", os.ModePerm))
@@ -188,6 +187,7 @@ func TestReloader_RuleApply(t *testing.T) {
 
 	l, err := net.Listen("tcp", "localhost:0")
 	testutil.Ok(t, err)
+	defer l.Close()
 
 	reloads := 0
 	i := 0
@@ -207,17 +207,15 @@ func TestReloader_RuleApply(t *testing.T) {
 		reloads++
 		resp.WriteHeader(http.StatusOK)
 	})
-	go func() {
-		_ = srv.Serve(l)
-	}()
-	defer func() { testutil.Ok(t, srv.Close()) }()
+	go srv.Serve(l)
+	defer srv.Close()
 
 	reloadURL, err := url.Parse(fmt.Sprintf("http://%s", l.Addr().String()))
 	testutil.Ok(t, err)
 
 	dir, err := ioutil.TempDir("", "reloader-rules-test")
 	testutil.Ok(t, err)
-	defer func() { testutil.Ok(t, os.RemoveAll(dir)) }()
+	defer os.RemoveAll(dir)
 
 	reloader := New(nil, reloadURL, "", "", dir)
 	reloader.ruleInterval = 100 * time.Millisecond
@@ -259,6 +257,6 @@ func TestReloader_RuleApply(t *testing.T) {
 	err = reloader.Watch(ctx)
 	cancel()
 	testutil.Ok(t, err)
-
 	testutil.Equals(t, 3, reloadsFn())
+
 }

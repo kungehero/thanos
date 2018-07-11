@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/improbable-eng/thanos/pkg/runutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,7 +48,7 @@ type BucketReader interface {
 
 // UploadDir uploads all files in srcdir to the bucket with into a top-level directory
 // named dstdir.
-func UploadDir(ctx context.Context, logger log.Logger, bkt Bucket, srcdir, dstdir string) error {
+func UploadDir(ctx context.Context, bkt Bucket, srcdir, dstdir string) error {
 	df, err := os.Stat(srcdir)
 	if err != nil {
 		return errors.Wrap(err, "stat dir")
@@ -67,17 +65,17 @@ func UploadDir(ctx context.Context, logger log.Logger, bkt Bucket, srcdir, dstdi
 		}
 		dst := filepath.Join(dstdir, strings.TrimPrefix(src, srcdir))
 
-		return UploadFile(ctx, logger, bkt, src, dst)
+		return UploadFile(ctx, bkt, src, dst)
 	})
 }
 
 // UploadFile uploads the file with the given name to the bucket.
-func UploadFile(ctx context.Context, logger log.Logger, bkt Bucket, src, dst string) error {
+func UploadFile(ctx context.Context, bkt Bucket, src, dst string) error {
 	r, err := os.Open(src)
 	if err != nil {
 		return errors.Wrapf(err, "open file %s", src)
 	}
-	defer runutil.CloseWithLogOnErr(logger, r, "close file %s", src)
+	defer runutil.LogOnErr(nil, r, "close file %s", src)
 
 	if err := bkt.Upload(ctx, dst, r); err != nil {
 		return errors.Wrapf(err, "upload file %s as %s", src, dst)
@@ -90,19 +88,19 @@ const DirDelim = "/"
 
 // DeleteDir removes all objects prefixed with dir from the bucket.
 func DeleteDir(ctx context.Context, bkt Bucket, dir string) error {
-	return bkt.Iter(ctx, dir, func(name string) error {
+	bkt.Iter(ctx, dir, func(name string) error {
 		// If we hit a directory, call DeleteDir recursively.
 		if strings.HasSuffix(name, DirDelim) {
 			return DeleteDir(ctx, bkt, name)
 		}
 		return bkt.Delete(ctx, name)
 	})
+	return nil
 }
 
 // DownloadFile downloads the src file from the bucket to dst. If dst is an existing
 // directory, a file with the same name as the source is created in dst.
-// If destination file is already existing, download file will overwrite it.
-func DownloadFile(ctx context.Context, logger log.Logger, bkt BucketReader, src, dst string) error {
+func DownloadFile(ctx context.Context, bkt BucketReader, src, dst string) error {
 	if fi, err := os.Stat(dst); err == nil {
 		if fi.IsDir() {
 			dst = filepath.Join(dst, filepath.Base(src))
@@ -115,19 +113,17 @@ func DownloadFile(ctx context.Context, logger log.Logger, bkt BucketReader, src,
 	if err != nil {
 		return errors.Wrap(err, "get file")
 	}
-	defer runutil.CloseWithLogOnErr(logger, rc, "download block's file reader")
+	defer rc.Close()
 
 	f, err := os.Create(dst)
 	if err != nil {
 		return errors.Wrap(err, "create file")
 	}
-	defer runutil.CloseWithLogOnErr(logger, f, "download block's output file")
-
 	defer func() {
+		f.Close()
+		// Best-effort cleanup.
 		if err != nil {
-			if rerr := os.Remove(dst); rerr != nil {
-				level.Warn(logger).Log("msg", "failed to remove partially downloaded file", "file", dst, "err", rerr)
-			}
+			os.Remove(dst)
 		}
 	}()
 	if _, err = io.Copy(f, rc); err != nil {
@@ -137,33 +133,21 @@ func DownloadFile(ctx context.Context, logger log.Logger, bkt BucketReader, src,
 }
 
 // DownloadDir downloads all object found in the directory into the local directory.
-func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, src, dst string) error {
+func DownloadDir(ctx context.Context, bkt BucketReader, src, dst string) error {
 	if err := os.MkdirAll(dst, 0777); err != nil {
 		return errors.Wrap(err, "create dir")
 	}
-
-	var downloadedFiles []string
-	if err := bkt.Iter(ctx, src, func(name string) error {
+	err := bkt.Iter(ctx, src, func(name string) error {
 		if strings.HasSuffix(name, DirDelim) {
-			return DownloadDir(ctx, logger, bkt, name, filepath.Join(dst, filepath.Base(name)))
+			return DownloadDir(ctx, bkt, name, filepath.Join(dst, filepath.Base(name)))
 		}
-		if err := DownloadFile(ctx, logger, bkt, name, dst); err != nil {
-			return err
-		}
-
-		downloadedFiles = append(downloadedFiles, dst)
-		return nil
-	}); err != nil {
-		// Best-effort cleanup if the download failed.
-		for _, f := range downloadedFiles {
-			if rerr := os.Remove(f); rerr != nil {
-				level.Warn(logger).Log("msg", "failed to remove file on partial dir download error", "file", f, "err", rerr)
-			}
-		}
-		return err
+		return DownloadFile(ctx, bkt, name, dst)
+	})
+	// Best-effort cleanup if the download failed.
+	if err != nil {
+		os.RemoveAll(dst)
 	}
-
-	return nil
+	return err
 }
 
 // BucketWithMetrics takes a bucket and registers metrics with the given registry for
@@ -232,7 +216,7 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 		return nil, err
 	}
 	rc = newTimingReadCloser(rc,
-		b.opsDuration.WithLabelValues(op), b.opsFailures.WithLabelValues(op))
+		b.opsDuration.WithLabelValues(op).(prometheus.Histogram), b.opsFailures.WithLabelValues(op))
 
 	return rc, nil
 }
@@ -247,7 +231,7 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 		return nil, err
 	}
 	rc = newTimingReadCloser(rc,
-		b.opsDuration.WithLabelValues(op), b.opsFailures.WithLabelValues(op))
+		b.opsDuration.WithLabelValues(op).(prometheus.Histogram), b.opsFailures.WithLabelValues(op))
 
 	return rc, nil
 }

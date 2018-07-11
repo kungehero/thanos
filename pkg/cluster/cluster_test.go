@@ -64,18 +64,20 @@ func apiAddr(num int) string {
 }
 
 func TestPeers_PropagatingState(t *testing.T) {
-	defer leaktest.CheckTimeout(t, 10*time.Second)()
 
+	defer leaktest.CheckTimeout(t, 10*time.Second)()
 	addr1, peer1, err := joinPeer(1, nil)
 	testutil.Ok(t, err)
 	defer peer1.Close(5 * time.Second)
-
 	_, peer2, err := joinPeer(2, []string{addr1})
 	testutil.Ok(t, err)
 	defer peer2.Close(5 * time.Second)
-
 	// peer2 should see two members with their data.
 	expected := []string{apiAddr(1), apiAddr(2)}
+
+	fmt.Println("peer2 Info", peer2.Info())
+	fmt.Println("***********")
+
 	testutil.Equals(t, expected, apiAddrs(peer2.PeerStates(PeerTypeSource)))
 
 	// Check if we have consistent info for PeerStates vs PeerState.
@@ -85,10 +87,11 @@ func TestPeers_PropagatingState(t *testing.T) {
 		testutil.Equals(t, ps, directPs)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	testutil.Ok(t, runutil.Retry(1*time.Second, ctx.Done(), func() error {
 		if len(peer1.data.Data()) > 1 {
+			fmt.Println("testutil *****", peer1.data.Data())
 			return nil
 		}
 		return errors.New("I am alone here")
@@ -103,7 +106,7 @@ func TestPeers_PropagatingState(t *testing.T) {
 		testutil.Assert(t, ok, "listed id should be gettable")
 		testutil.Equals(t, ps, directPs)
 	}
-
+	fmt.Println("peer1 info:", peer1.Info())
 	// Update peer1 state.
 	now := time.Now()
 	newPeerMeta1 := PeerMetadata{
@@ -127,10 +130,11 @@ func TestPeers_PropagatingState(t *testing.T) {
 			if st.StoreAPIAddr != "sidecar-address:1" {
 				continue
 			}
-
 			if reflect.DeepEqual(st.Metadata, newPeerMeta1) {
+				fmt.Println("equal", st.Metadata, newPeerMeta1)
 				return nil
 			}
+			fmt.Println("not equal", st.Metadata)
 		}
 		return errors.New("outdated metadata")
 	}))
@@ -146,6 +150,9 @@ func apiAddrs(states map[string]PeerState) (addrs []string) {
 
 func TestCalculateAdvAddress(t *testing.T) {
 	privateIP, err := sockaddr.GetPrivateIP()
+
+	fmt.Println(privateIP)
+
 	testutil.Ok(t, err)
 
 	for _, tc := range []struct {
@@ -191,6 +198,7 @@ func TestCalculateAdvAddress(t *testing.T) {
 				testutil.Equals(t, tc.err.Error(), err.Error())
 				return
 			}
+			fmt.Println(host, port)
 			testutil.Ok(t, err)
 			testutil.Equals(t, tc.expected, fmt.Sprintf("%s:%d", host, port))
 

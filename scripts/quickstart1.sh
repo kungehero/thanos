@@ -66,7 +66,6 @@ scrape_configs:
   - targets:
     - "localhost:19491"
     - "localhost:19492"
-    - "localhost:9100"
 EOF
 
   prometheus \

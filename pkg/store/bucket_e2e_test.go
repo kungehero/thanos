@@ -2,20 +2,19 @@ package store
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/improbable-eng/thanos/pkg/block"
 	"github.com/improbable-eng/thanos/pkg/objstore"
 	"github.com/improbable-eng/thanos/pkg/objstore/objtesting"
 	"github.com/improbable-eng/thanos/pkg/runutil"
 	"github.com/improbable-eng/thanos/pkg/store/storepb"
 	"github.com/improbable-eng/thanos/pkg/testutil"
-	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/timestamp"
 	"github.com/prometheus/tsdb/labels"
 )
@@ -27,7 +26,7 @@ func TestBucketStore_e2e(t *testing.T) {
 
 		dir, err := ioutil.TempDir("", "test_bucketstore_e2e")
 		testutil.Ok(t, err)
-		defer func() { testutil.Ok(t, os.RemoveAll(dir)) }()
+		defer os.RemoveAll(dir)
 
 		series := []labels.Labels{
 			labels.FromStrings("a", "1", "b", "1"),
@@ -69,10 +68,10 @@ func TestBucketStore_e2e(t *testing.T) {
 			meta, err := block.ReadMetaFile(dir2)
 			testutil.Ok(t, err)
 			meta.Thanos.Labels = map[string]string{"ext2": "value2"}
-			testutil.Ok(t, block.WriteMetaFile(log.NewNopLogger(), dir2, meta))
+			testutil.Ok(t, block.WriteMetaFile(dir2, meta))
 
-			testutil.Ok(t, block.Upload(ctx, log.NewNopLogger(), bkt, dir1))
-			testutil.Ok(t, block.Upload(ctx, log.NewNopLogger(), bkt, dir2))
+			testutil.Ok(t, block.Upload(ctx, bkt, dir1))
+			testutil.Ok(t, block.Upload(ctx, bkt, dir2))
 
 			testutil.Ok(t, os.RemoveAll(dir1))
 			testutil.Ok(t, os.RemoveAll(dir2))
@@ -82,12 +81,9 @@ func TestBucketStore_e2e(t *testing.T) {
 		testutil.Ok(t, err)
 
 		go func() {
-			if err := runutil.Repeat(100*time.Millisecond, ctx.Done(), func() error {
+			runutil.Repeat(100*time.Millisecond, ctx.Done(), func() error {
 				return store.SyncBlocks(ctx)
-			}); err != nil && errors.Cause(err) != context.Canceled {
-				t.Error(err)
-				t.FailNow()
-			}
+			})
 		}()
 
 		ctx, _ = context.WithTimeout(ctx, 30*time.Second)

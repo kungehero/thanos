@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fortytw2/leaktest"
-	"github.com/go-kit/kit/log"
 	"github.com/improbable-eng/thanos/pkg/block"
 	"github.com/improbable-eng/thanos/pkg/testutil"
 	"github.com/prometheus/tsdb/chunkenc"
@@ -27,14 +26,10 @@ func TestExpandChunkIterator(t *testing.T) {
 	// and staleness markers.
 	// Same timestamps are okay since we use them for counter markers.
 	var res []sample
-	testutil.Ok(t,
-		expandChunkIterator(
-			newSampleIterator([]sample{
-				{100, 1}, {200, 2}, {200, 3}, {201, 4}, {200, 5},
-				{300, 6}, {400, math.Float64frombits(value.StaleNaN)}, {500, 5},
-			}), &res,
-		),
-	)
+	expandChunkIterator(newSampleIterator([]sample{
+		{100, 1}, {200, 2}, {200, 3}, {201, 4}, {200, 5},
+		{300, 6}, {400, math.Float64frombits(value.StaleNaN)}, {500, 5},
+	}), &res)
 
 	testutil.Equals(t, []sample{{100, 1}, {200, 2}, {200, 3}, {201, 4}, {300, 6}, {500, 5}}, res)
 }
@@ -128,7 +123,7 @@ func testDownsample(t *testing.T, data []*downsampleTestSet, meta *block.Meta, r
 
 	dir, err := ioutil.TempDir("", "downsample-raw")
 	testutil.Ok(t, err)
-	defer func() { testutil.Ok(t, os.RemoveAll(dir)) }()
+	defer os.RemoveAll(dir)
 
 	// Ideally we would use tsdb.HeadBlock here for less dependency on our own code. However,
 	// it cannot accept the counter signal sample with the same timestamp as the previous sample.
@@ -158,7 +153,7 @@ func testDownsample(t *testing.T, data []*downsampleTestSet, meta *block.Meta, r
 		mb.addSeries(ser)
 	}
 
-	id, err := Downsample(log.NewNopLogger(), meta, mb, dir, resolution)
+	id, err := Downsample(meta, mb, dir, resolution)
 	testutil.Ok(t, err)
 
 	exp := map[uint64]map[AggrType][]sample{}
@@ -169,11 +164,11 @@ func testDownsample(t *testing.T, data []*downsampleTestSet, meta *block.Meta, r
 	}
 	indexr, err := index.NewFileReader(filepath.Join(dir, id.String(), block.IndexFilename))
 	testutil.Ok(t, err)
-	defer func() { testutil.Ok(t, indexr.Close()) }()
+	defer indexr.Close()
 
 	chunkr, err := chunks.NewDirReader(filepath.Join(dir, id.String(), block.ChunksDirname), NewPool())
 	testutil.Ok(t, err)
-	defer func() { testutil.Ok(t, chunkr.Close()) }()
+	defer chunkr.Close()
 
 	pall, err := indexr.Postings(index.AllPostingsKey())
 	testutil.Ok(t, err)

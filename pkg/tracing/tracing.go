@@ -1,9 +1,8 @@
 package tracing
 
 import (
-	"os"
-
 	"context"
+	"os"
 
 	"github.com/opentracing/basictracer-go"
 	"github.com/opentracing/opentracing-go"
@@ -89,7 +88,6 @@ func (r *forceRecorder) RecordSpan(sp basictracer.RawSpan) {
 	if force := sp.Context.Baggage[ForceTracingBaggageKey]; force != "" {
 		sp.Context.Sampled = true
 	}
-
 	// All recorder implementation should support handling sp.Context.Sampled.
 	r.wrapped.RecordSpan(sp)
 }

@@ -55,8 +55,8 @@ func RetryWithLog(logger log.Logger, interval time.Duration, stopc <-chan struct
 	}
 }
 
-// CloseWithLogOnErr is making sure we log every error, even those from best effort tiny closers.
-func CloseWithLogOnErr(logger log.Logger, closer io.Closer, format string, a ...interface{}) {
+// LogOnErr is making sure we log every error, even those from best effort tiny closers.
+func LogOnErr(logger log.Logger, closer io.Closer, wrap string, a ...interface{}) {
 	err := closer.Close()
 	if err == nil {
 		return
@@ -66,12 +66,12 @@ func CloseWithLogOnErr(logger log.Logger, closer io.Closer, format string, a ...
 		logger = log.NewLogfmtLogger(os.Stderr)
 	}
 
-	level.Warn(logger).Log("msg", "detected close error", "err", errors.Wrap(err, fmt.Sprintf(format, a...)))
+	level.Warn(logger).Log("msg", "detected close error", "err", errors.Wrap(err, fmt.Sprintf(wrap, a...)))
 }
 
-// CloseWithErrCapture runs function and on error tries to return error by argument.
+// BestEffortErr runs function and on error tries to return error from argument.
 // If error is already there we assume that error has higher priority and we just log the function error.
-func CloseWithErrCapture(logger log.Logger, err *error, closer io.Closer, format string, a ...interface{}) {
+func BestEffortErr(logger log.Logger, err *error, closer io.Closer, wrap string, a ...interface{}) {
 	closeErr := closer.Close()
 	if closeErr == nil {
 		return
@@ -82,13 +82,13 @@ func CloseWithErrCapture(logger log.Logger, err *error, closer io.Closer, format
 		return
 	}
 
-	// There is already an error, let's log this one.
+	// There is already error, let's log this one.
 	if logger == nil {
 		logger = log.NewLogfmtLogger(os.Stderr)
 	}
 
 	level.Warn(logger).Log(
 		"msg", "detected best effort close error that was preempted from the more important one",
-		"err", errors.Wrap(closeErr, fmt.Sprintf(format, a...)),
+		"err", errors.Wrap(closeErr, fmt.Sprintf(wrap, a...)),
 	)
 }

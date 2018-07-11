@@ -484,7 +484,6 @@ func removeMyAddr(ips []net.IPAddr, targetPort string, myAddr string) []net.IPAd
 		}
 		result = append(result, ip)
 	}
-
 	return result
 }
 

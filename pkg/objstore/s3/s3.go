@@ -15,9 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/improbable-eng/thanos/pkg/objstore"
-	"github.com/improbable-eng/thanos/pkg/runutil"
 	"github.com/minio/minio-go"
 	"github.com/minio/minio-go/pkg/encrypt"
 	"github.com/pkg/errors"
@@ -39,7 +37,6 @@ const DirDelim = "/"
 
 // Bucket implements the store.Bucket interface against s3-compatible APIs.
 type Bucket struct {
-	logger   log.Logger
 	bucket   string
 	client   *minio.Client
 	sse      encrypt.ServerSide
@@ -106,7 +103,7 @@ func (conf *Config) ValidateForTests() error {
 }
 
 // NewBucket returns a new Bucket using the provided s3 config values.
-func NewBucket(logger log.Logger, conf *Config, reg prometheus.Registerer, component string) (*Bucket, error) {
+func NewBucket(conf *Config, reg prometheus.Registerer, component string) (*Bucket, error) {
 	var f func(string, string, string, bool) (*minio.Client, error)
 	if conf.SignatureV2 {
 		f = minio.NewV2
@@ -149,7 +146,6 @@ func NewBucket(logger log.Logger, conf *Config, reg prometheus.Registerer, compo
 	}
 
 	bkt := &Bucket{
-		logger: logger,
 		bucket: conf.Bucket,
 		client: client,
 		sse:    sse,
@@ -204,8 +200,7 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 	// NotFoundObject error is revealed only after first Read. This does the initial GetRequest. Prefetch this here
 	// for convenience.
 	if _, err := r.Read(nil); err != nil {
-		runutil.CloseWithLogOnErr(b.logger, r, "s3 get range obj close")
-
+		r.Close()
 		// First GET Object request error.
 		return nil, err
 	}
@@ -288,7 +283,7 @@ func NewTestBucket(t testing.TB, location string) (objstore.Bucket, func(), erro
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), c, nil, "thanos-e2e-test")
+	b, err := NewBucket(c, nil, "thanos-e2e-test")
 	if err != nil {
 		return nil, nil, err
 	}

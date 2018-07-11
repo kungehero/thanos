@@ -22,7 +22,7 @@ import (
 func TestQuerySimple(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test_query_simple")
 	testutil.Ok(t, err)
-	defer func() { testutil.Ok(t, os.RemoveAll(dir)) }()
+	defer os.RemoveAll(dir)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 
@@ -193,7 +193,7 @@ func queryPrometheus(ctx context.Context, ustr string, ts time.Time, q string, d
 	if err != nil {
 		return nil, err
 	}
-	defer runutil.CloseWithLogOnErr(nil, resp.Body, "close body query")
+	defer resp.Body.Close()
 
 	var m struct {
 		Data struct {
