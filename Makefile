@@ -13,11 +13,12 @@ DOCKER_IMAGE_TAG  ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))-$(she
 FIRST_GOPATH      ?= $(firstword $(subst :, ,$(shell go env GOPATH)))
 GOIMPORTS         ?= $(FIRST_GOPATH)/bin/goimports
 PROMU             ?= $(FIRST_GOPATH)/bin/promu
-DEP               ?= $(FIRST_GOPATH)/bin/dep
 ERRCHECK          ?= $(FIRST_GOPATH)/bin/errcheck
+GOVENDOR         ?= $(FIRST_GOPATH)/bin/govendor
+DEP               ?= $(FIRST_GOPATH)/bin/dep
 
 .PHONY: all
-all: deps format errcheck build
+all: deps format build
 
 # assets repacks all statis assets into go file for easier deploy.
 .PHONY: assets
@@ -121,21 +122,23 @@ vet:
 
 # non-phony targets
 
-vendor: Gopkg.toml Gopkg.lock | $(DEP)
-	@echo ">> dep ensure"
-	@$(DEP) ensure
+vendor:
+	@echo ">> go vendor install"
+	@$(GOVENDOR) init
+	@$(GOVENDOR) add +external
+	@$(GOVENDOR) install +local
 
 $(GOIMPORTS):
 	@echo ">> fetching goimports"
-	@go get -u golang.org/x/tools/cmd/goimports
+	@go get -u github.com/golang/tools $GOPATH/src/golang.org/x/tools
 
 $(PROMU):
 	@echo ">> fetching promu"
 	GOOS= GOARCH= go get -u github.com/prometheus/promu
 
-$(DEP):
-	@echo ">> fetching dep"
-	@go get -u github.com/golang/dep/cmd/dep
+.PHONY: $(GOVENDOR)
+$(GOVENDOR):
+	GOOS= GOARCH= $(GO) get -u github.com/kardianos/govendor
 
 $(ERRCHECK):
 	@echo ">> fetching errcheck"

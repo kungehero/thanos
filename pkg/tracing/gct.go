@@ -6,10 +6,8 @@ import (
 
 	"fmt"
 
-	"cloud.google.com/go/trace/apiv1"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/lovoo/gcloud-opentracing"
 	"github.com/opentracing/basictracer-go"
 	"github.com/opentracing/opentracing-go"
 )
