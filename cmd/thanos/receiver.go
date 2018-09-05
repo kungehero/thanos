@@ -1,12 +1,12 @@
 package main
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/go-kit/kit/log"
 	"github.com/oklog/run"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
-	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func registerReceiver(m map[string]setupFunc, app *kingpin.Application, name string) {
@@ -18,8 +18,6 @@ func registerReceiver(m map[string]setupFunc, app *kingpin.Application, name str
 
 	dataDir := cmd.Flag("tsdb.path", "Data directory of TSDB.").
 		Default("./data").String()
-
-
 
 	m[name] = func(g *run.Group, logger log.Logger, reg *prometheus.Registry, tracer opentracing.Tracer, debugLogging bool) error {
 		peer, err := newPeerFn(logger, reg, false, "", false)
@@ -39,10 +37,5 @@ func registerReceiver(m map[string]setupFunc, app *kingpin.Application, name str
 			debugLogging,
 		)
 	}
-
-
-
-
-
 
 }

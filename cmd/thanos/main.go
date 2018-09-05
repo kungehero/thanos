@@ -56,7 +56,7 @@ func main() {
 	registerSidecar(cmds, app, "sidecar")
 	registerStore(cmds, app, "store")
 	registerQuery(cmds, app, "query")
-	registerReceiver(cmds,app,"receiver")
+	registerReceiver(cmds, app, "receiver")
 	registerRule(cmds, app, "rule")
 	registerCompact(cmds, app, "compact")
 	registerBucket(cmds, app, "bucket")
